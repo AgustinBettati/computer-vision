@@ -5,10 +5,19 @@ import numpy
 import math
 
 def hu_moments_of_file(filename):
-    im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
-    _, im = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
+    image = cv2.imread(filename)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    _, bin = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY)
+    # Invert the image so the area of the UAV is filled with 1's. This is necessary since
+    # cv::findContours describes the boundary of areas consisting of 1's.
+    bin = 255 - bin
+    contours, hierarchy = cv2.findContours(bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.drawContours(image, contours, -1, (255, 0, 255), 3)
+    # cv2.imshow('with contours', image)
+    # cv2.waitKey(0)
+    shape_contour = contours[0]
     # Calculate Moments
-    moments = cv2.moments(im)
+    moments = cv2.moments(shape_contour)
     # Calculate Hu Moments
     huMoments = cv2.HuMoments(moments)
     # Log scale hu moments
@@ -25,10 +34,12 @@ def write_hu_moments(id, writer):
       writer.writerow(row)
 
 
-with open('./generated-files/shapes-hu-moments.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    write_hu_moments("5-point-star", writer)
-    write_hu_moments("rectangle", writer)
-    write_hu_moments("triangle", writer)
+def generate_hu_moments_file():
+    with open('./generated-files/shapes-hu-moments.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        write_hu_moments("5-point-star", writer)
+        write_hu_moments("rectangle", writer)
+        write_hu_moments("triangle", writer)
 
 
+generate_hu_moments_file()
