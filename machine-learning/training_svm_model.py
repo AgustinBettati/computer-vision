@@ -23,11 +23,21 @@ def load_training_set():
 def train_svm_model():
     load_training_set()
 
-    svm = cv2.ml.SVM_create()
-    svm.setType(cv2.ml.SVM_C_SVC)
-    svm.setKernel(cv2.ml.SVM_RBF)
-    svm.trainAuto(trainData, cv2.ml.ROW_SAMPLE, trainLabels)
-    svm.save("./generated-files/svm_shapes_model.yml")
+    tree = cv2.ml.DTrees_create()
+    tree.setCVFolds(1)
+    tree.setMaxDepth(10)
+    tree.train(trainData, cv2.ml.ROW_SAMPLE, trainLabels)
+    tree.save("./generated-files/tree_shapes_model.yml")
+
+    # bayes = cv2.ml.NormalBayesClassifier_create()
+    # bayes.train(trainData, cv2.ml.ROW_SAMPLE, trainLabels)
+    # bayes.save("./generated-files/bayes_shapes_model.yml")
+
+    # svm = cv2.ml.SVM_create()
+    # svm.setType(cv2.ml.SVM_C_SVC)
+    # svm.setKernel(cv2.ml.SVM_RBF)
+    # svm.trainAuto(trainData, cv2.ml.ROW_SAMPLE, trainLabels)
+    # svm.save("./generated-files/svm_shapes_model.yml")
 
 # testSample = np.array([trainData[15]], dtype=np.float32)
 # testResponse = svm.predict(testSample)[1]

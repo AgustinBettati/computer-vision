@@ -7,13 +7,17 @@ import math
 def hu_moments_of_file(filename):
     image = cv2.imread(filename)
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    block_size = 7
+    block_size = 67
     bin = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2)
-    # cv2.imshow('binary', bin)
 
     # Invert the image so the area of the UAV is filled with 1's. This is necessary since
     # cv::findContours describes the boundary of areas consisting of 1's.
     bin = 255 - bin
+
+    kernel = numpy.ones((3, 3), numpy.uint8)
+    # buscamos eliminar falsos positivos (puntos blancos en el fondo)
+    bin = cv2.morphologyEx(bin, cv2.MORPH_ERODE, kernel)
+    # cv2.imshow('binary', bin)
     contours, hierarchy = cv2.findContours(bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     shape_contour = max(contours, key=cv2.contourArea)
     # cv2.drawContours(image, [shape_contour], -1, (255, 0, 255), 3)
