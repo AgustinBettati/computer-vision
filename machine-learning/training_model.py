@@ -39,6 +39,5 @@ def train_model():
     # svm.trainAuto(trainData, cv2.ml.ROW_SAMPLE, trainLabels)
     # svm.save("./generated-files/svm_shapes_model.yml")
 
-# testSample = np.array([trainData[15]], dtype=np.float32)
-# testResponse = svm.predict(testSample)[1]
-# print(testResponse)
+    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 0.1)
+    # ret, label, center = cv2.kmeans(trainData, 3, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
