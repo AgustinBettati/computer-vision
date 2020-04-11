@@ -20,7 +20,7 @@ def load_training_set():
     trainData = np.array(trainData, dtype=np.float32)
     trainLabels = np.array(trainLabels, dtype=np.int32)
 
-def train_svm_model():
+def train_model():
     load_training_set()
 
     tree = cv2.ml.DTrees_create()
