@@ -2,8 +2,8 @@
 def label_to_int(string_label):
   if string_label == '5-point-star': return 1
   if string_label == 'rectangle': return 2
-  if string_label == 'triangle':
-    return 3
+  if string_label == 'triangle': return 3
+
   else:
     raise Exception('unkown class_label')
 
