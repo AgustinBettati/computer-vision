@@ -5,6 +5,8 @@ import numpy as np
 import yaml
 
 width, height = 500, 500
+width_cm, height_cm = 21, 21
+
 counter = 0
 cap = cv2.VideoCapture(0)
 
@@ -66,6 +68,29 @@ def invert_point(x):
   result = np.array(result)
   return result
 
+def draw_circle_with_text(img, x, y, label):
+  cv2.circle(img, (x, y), 7, (255, 255, 255), -1)
+  cv2.putText(img, label, (x - 20, y - 20),
+              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+  cv2.putText(img, "(" + str(x) + ", " + str(y) + ")", (x - 20, y - 40),
+              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
+def obtain_contour(img):
+  gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+  block_size = 67  # Tamaño del bloque a comparar, debe ser impar.
+  bin = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2)
+
+  # Invert the image so the area of the UAV is filled with 1's. This is necessary since
+  # cv::findContours describes the boundary of areas consisting of 1's.
+  bin = 255 - bin  # como sabemos que las figuras son negras invertimos los valores binarios para que esten en 1.
+
+  kernel = np.ones((3, 3), np.uint8)  # Tamaño del bloque a recorrer
+  # buscamos eliminar falsos positivos (puntos blancos en el fondo) para eliminar ruido.
+  bin = cv2.morphologyEx(bin, cv2.MORPH_ERODE, kernel)
+
+  contours, hierarchy = cv2.findContours(bin, cv2.RETR_LIST,
+                                         cv2.CHAIN_APPROX_SIMPLE)  # encuetra los contornos, chain aprox simple une algunos puntos para que no sea discontinuo.
+  return max(contours, key=cv2.contourArea)  # Agarra el contorno de area maxima
 
 while True:
 
@@ -79,46 +104,27 @@ while True:
         print(h_mat)
 
     if(len(h_mat) != 0):
-        imgOutput = cv2.warpPerspective(frame, h_mat, ((width, height)))
-
-        gray = cv2.cvtColor(imgOutput, cv2.COLOR_RGB2GRAY)
-        block_size = 67  # Tamaño del bloque a comparar, debe ser impar.
-        bin = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2)
-
-        # Invert the image so the area of the UAV is filled with 1's. This is necessary since
-        # cv::findContours describes the boundary of areas consisting of 1's.
-        bin = 255 - bin  # como sabemos que las figuras son negras invertimos los valores binarios para que esten en 1.
-
-        kernel = np.ones((3, 3), np.uint8)  # Tamaño del bloque a recorrer
-        # buscamos eliminar falsos positivos (puntos blancos en el fondo) para eliminar ruido.
-        bin = cv2.morphologyEx(bin, cv2.MORPH_ERODE, kernel)
-
-        contours, hierarchy = cv2.findContours(bin, cv2.RETR_LIST,
-                                               cv2.CHAIN_APPROX_SIMPLE)  # encuetra los contornos, chain aprox simple une algunos puntos para que no sea discontinuo.
-        shape_contour = max(contours, key=cv2.contourArea)  # Agarra el contorno de area maxima
-        if(cv2.contourArea(shape_contour) > 100):
-            cv2.drawContours(imgOutput, [shape_contour], -1, (255, 0, 255), 3)
+        perpendicular_img = cv2.warpPerspective(frame, h_mat, ((width, height)))
+        shape_contour = obtain_contour(perpendicular_img)
+        if(cv2.contourArea(shape_contour) > 1000):
+            cv2.drawContours(perpendicular_img, [shape_contour], -1, (255, 0, 255), 3)
 
             original_contours = inverse_contour_points(shape_contour)
             cv2.drawContours(frame, [original_contours], -1, (255, 0, 255), 3)
 
-
             M = cv2.moments(shape_contour)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
-            cv2.circle(imgOutput, (cX, cY), 7, (255, 255, 255), -1)
-            cv2.putText(imgOutput, "(" + str(cX) + ", " + str(cY) + ")", (cX - 20, cY - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-            x = np.array([[cX, cY]], dtype='float32')
-            original_points = cv2.perspectiveTransform(x[np.newaxis], inverse_mat)
-            center = original_points[0][0]
-            cv2.circle(frame, (math.floor(center[0]), math.floor(center[1])), 7, (255, 255, 255), -1)
-            cv2.putText(frame, "(" + str(math.floor(center[0])) + ", " + str(math.floor(center[1])) + ")", (math.floor(center[0]) - 20, math.floor(center[1]) - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            x_cm = width_cm * cX / width
+            y_cm = height_cm * cY / height
 
+            draw_circle_with_text(perpendicular_img, cX, cY, "(" + str(x_cm) + ", " + str(y_cm) + ") cm")
 
-        cv2.imshow("2D Image ", imgOutput)
+            inverted_point = invert_point([[cX, cY]])[0]
+            draw_circle_with_text(frame, inverted_point[0], inverted_point[1], "(" + str(x_cm) + ", " + str(y_cm) + ") cm")
+
+        cv2.imshow("2D Image ", perpendicular_img)
 
     cv2.imshow("Live Image ", frame)
 
