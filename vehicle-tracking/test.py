@@ -46,6 +46,14 @@ def calculateDistance(x1, y1, x2, y2):
   dist = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
   return dist
 
+
+def obtain_center(contour):
+  M = cv2.moments(contour)
+  cX = int(M["m10"] / M["m00"])
+  cY = int(M["m01"] / M["m00"])
+  return [cX, cY]
+
+
 while (cap.isOpened):
 
   import time
@@ -54,7 +62,7 @@ while (cap.isOpened):
   ret, frame = cap.read()
 
   frame_counter = frame_counter + 1
-  if (frame_counter > 30):  # cada 1s
+  if (frame_counter > 3):  # cada 0.1s
     check_velocity = True
     frame_counter = 0
 
@@ -68,14 +76,16 @@ while (cap.isOpened):
   # check opencv version
 
   (contours, hierarchy) = cv2.findContours(fgmask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  # final = vconcat_resize_min(imgs)
 
   filtered_contours = list(filter(lambda c: cv2.contourArea(c) > 500, contours))
-  imgs = list(map(lambda c: contour_to_img(frame, c), filtered_contours))
+  car_imgs = list(map(lambda c: contour_to_img(frame, c), filtered_contours))
 
+  for car in car_list:
+    car.updated = False
+
+  centers = list(map(obtain_center, filtered_contours))
   # looping for contours
   for c in filtered_contours:
-
     M = cv2.moments(c)
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
@@ -85,22 +95,23 @@ while (cap.isOpened):
 
     for car in car_list:
       distance = calculateDistance(cX, cY, car.x, car.y)
-      if distance < 30 and not has_matched: #es cercano y los considero igual
+      if distance < 30 and not has_matched and not car.updated: #es cercano y los considero igual
         has_matched = True
         car.updated = True
+        car.x = cX
+        car.y = cY
         if(check_velocity):
           if(car.hist_x != 0 and car.hist_y != 0):
             distance = calculateDistance(cX, cY, car.hist_x, car.hist_y)
-            distanceM = distance * 0.07
-            meterPerSecond = distanceM / 1
-            velocity = round(meterPerSecond * 3.6, 2)
+            distanceM = distance * 0.07 # en 0.1s
+            meterPerSecond = distanceM / 0.1
+            velocity = int(meterPerSecond * 3.6)
             car.velocity = velocity
           car.hist_x = cX
           car.hist_y = cY
         else:
           velocity = car.velocity
-        car.x = cX
-        car.y = cY
+
 
     if not has_matched:
       car_list.append(Vehicle(cX, cY, 0))
@@ -111,17 +122,19 @@ while (cap.isOpened):
     # draw bounding box
     cv2.rectangle(frame, (x, y), (x + w, y + h), obtain_color(cv2.contourArea(c)), 2)
 
-    cv2.putText(frame, str(velocity), (x, y),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+    cv2.putText(frame, str(velocity) + " km/h", (x, y - 5),cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 2)
 
   for car in car_list:
     if not car.updated:
       car.inactive_counter = car.inactive_counter + 1
+    else:
+      car.inactive_counter = 0
 
-  car_list = list(filter( lambda c: c.inactive_counter < 60, car_list))
+  car_list = list(filter( lambda c: c.inactive_counter < 30, car_list))
 
   # cv2.imshow('foreground and background', fgmask)
   check_velocity = False
-  cv2.imshow('mosaic', vconcat_resize_min(imgs))
+  cv2.imshow('mosaic', vconcat_resize_min(car_imgs))
   cv2.imshow('rgb', frame)
   if cv2.waitKey(1) & 0xFF == ord("q"):
     break
