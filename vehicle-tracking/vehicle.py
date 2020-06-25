@@ -1,3 +1,5 @@
+import numpy as np
+
 class Vehicle:
 
   def __init__(self, x, y, velocity):
@@ -8,4 +10,4 @@ class Vehicle:
     self.updated = True
     self.inactive_counter = 0
     self.velocity = velocity
-
+    self.img = np.array([])

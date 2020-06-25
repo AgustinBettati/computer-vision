@@ -17,6 +17,7 @@ cap = cv2.VideoCapture(video_path)
 fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False, history=500, varThreshold=16)
 
 car_list = []
+old_car_imgs = []
 
 frame_counter = 0
 check_velocity = False
@@ -29,11 +30,33 @@ def obtain_color(area):
   else:
     return (0, 0, 255)
 
-def vconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
+def mosaic_view(im_list, interpolation=cv2.INTER_CUBIC):
   w_min = 200
   im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
                     for im in im_list]
-  return cv2.vconcat(im_list_resize)
+  if len(im_list) > 25:
+    first_col = cv2.vconcat(im_list_resize[:7])
+    second_col = cv2.vconcat(im_list_resize[7:14])
+    third_col = cv2.vconcat(im_list_resize[14:21])
+    forth_col = cv2.vconcat(im_list_resize[21:])
+    result = [cv2.resize(im, (w_min, 800), interpolation=interpolation)
+              for im in [first_col, second_col, third_col, forth_col]]
+    return cv2.hconcat(result)
+  if len(im_list) > 18:
+    first_col = cv2.vconcat(im_list_resize[:7])
+    second_col = cv2.vconcat(im_list_resize[7:14])
+    third_col = cv2.vconcat(im_list_resize[14:])
+    result = [cv2.resize(im, (w_min, 800), interpolation=interpolation)
+              for im in [first_col, second_col, third_col]]
+    return cv2.hconcat(result)
+  elif len(im_list) > 10:
+    first_col = cv2.vconcat(im_list_resize[:7])
+    second_col = cv2.vconcat(im_list_resize[7:])
+    result = [cv2.resize(im, (w_min, 800), interpolation=interpolation)
+                      for im in [first_col, second_col]]
+    return cv2.hconcat(result)
+  else:
+    return cv2.vconcat(im_list_resize)
 
 
 def contour_to_img(img, contour):
@@ -80,6 +103,10 @@ while (cap.isOpened):
   filtered_contours = list(filter(lambda c: cv2.contourArea(c) > 500, contours))
   car_imgs = list(map(lambda c: contour_to_img(frame, c), filtered_contours))
 
+  cv2.imshow('live cars', mosaic_view(car_imgs))
+  if len(old_car_imgs) != 0:
+    cv2.imshow('historic', mosaic_view(old_car_imgs))
+
   for car in car_list:
     car.updated = False
 
@@ -107,6 +134,8 @@ while (cap.isOpened):
             meterPerSecond = distanceM / 0.1
             velocity = int(meterPerSecond * 3.6)
             car.velocity = velocity
+            car_img = contour_to_img(frame, c)
+            car.img = car_img
           car.hist_x = cX
           car.hist_y = cY
         else:
@@ -130,11 +159,15 @@ while (cap.isOpened):
     else:
       car.inactive_counter = 0
 
-  car_list = list(filter( lambda c: c.inactive_counter < 30, car_list))
+  old_cars = list(filter( lambda c: c.inactive_counter >= 5, car_list))
+  for c in old_cars:
+    if c.img.size != 0:
+      old_car_imgs.append(c.img)
+
+  car_list = list(filter( lambda c: c.inactive_counter < 5, car_list))
 
   # cv2.imshow('foreground and background', fgmask)
   check_velocity = False
-  cv2.imshow('mosaic', vconcat_resize_min(car_imgs))
   cv2.imshow('rgb', frame)
   if cv2.waitKey(1) & 0xFF == ord("q"):
     break
