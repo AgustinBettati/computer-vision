@@ -6,5 +6,6 @@ class Person:
     self.name = name
     self.picture_url = picture
     self.img = []
+    self.video_img = []
     self.encoding = []
     self.is_present = False

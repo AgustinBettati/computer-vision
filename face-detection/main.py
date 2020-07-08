@@ -1,26 +1,21 @@
-import glob
 import sys
-
 import face_recognition
 import cv2
 import numpy as np
-
-# Get a reference to webcam #0 (the default one)
 import yaml
-
-from mosaic_view import mosaic_view
+from mosaic_view import mosaic_view, concat_face_imgs
 from person import Person
 
 # TODO:
 # - mostrar imagen de perfil y una del video
 
-video_path = "/Users/abettati/Desktop/Screen Recording 2020-07-02 at 8.34.21 PM.mov"
+video_path = "/Users/abettati/Desktop/videos-vision/Screen Recording 2020-07-02 at 8.34.21 PM.mov"
 video_capture = cv2.VideoCapture(video_path)
 
 # Load a sample picture and learn how to recognize it.
 
 participants = []
-with open('./alumnos.yaml') as f:
+with open('./input/alumnos.yaml') as f:
   data = yaml.load(f, Loader=yaml.FullLoader)
   for student_info in data:
     participants.append(Person(student_info[0], student_info[1]))
@@ -62,15 +57,23 @@ while (video_capture.isOpened):
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
             face_names = []
-            for face_encoding in face_encodings:
+            for i in range(len(face_encodings)):
+                face_encoding = face_encodings[i]
+                face_location = face_locations[i]
                 name = "Unknown"
                 face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.6)
+                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.55)
 
                 best_match_index = np.argmin(face_distances)
                 if matches[best_match_index]:
-                    participants[best_match_index].is_present = True
-                    name = participants[best_match_index].name
+                    participant = participants[best_match_index]
+                    participant.is_present = True
+                    name = participant.name
+                    (top, right, bottom, left) = list(map(lambda x: x * 4, face_locations[i]))
+                    margin = 10
+                    video_image = frame[top -margin: bottom + margin, left - margin:right + margin]
+                    if len(participant.video_img) == 0:
+                      participant.video_img = video_image.copy()
 
                 face_names.append(name)
 
@@ -104,11 +107,11 @@ while (video_capture.isOpened):
 present = list(filter(lambda p: p.is_present, participants))
 absent = list(filter(lambda p: not p.is_present, participants))
 
-cv2.imwrite('./present.jpg', mosaic_view(list(map(lambda p: p.img, present))))
-cv2.imwrite('./absent.jpg', mosaic_view(list(map(lambda p: p.img, absent))))
+cv2.imwrite('./output/present.jpg', mosaic_view(list(map(lambda p: (concat_face_imgs(p), p), present))))
+cv2.imwrite('./output/absent.jpg', mosaic_view(list(map(lambda p: (p.img, p), absent))))
 
 # Release handle to the webcam
-with open('asistencia.yaml', 'w') as outfile:
+with open('./output/asistencia.yaml', 'w') as outfile:
   result = {
     "presentes": list(map(lambda p: p.name, present)),
     "ausentes": list(map(lambda p: p.name, absent))
