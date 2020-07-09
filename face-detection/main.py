@@ -7,15 +7,12 @@ import yaml
 from mosaic_view import mosaic_view, concat_face_imgs
 from person import Person
 
-# TODO:
-# - mostrar imagen de perfil y una del video
-
-video_path = "/Users/abettati/Desktop/videos-vision/Screen Recording 2020-07-02 at 8.34.21 PM.mov"
-# video_path = "/Users/abettati/Desktop/grande-detecta-bien.mov"
-# video_path = "/Users/abettati/Desktop/no-detecta-nada.mov"
+# video_path = "/Users/abettati/Desktop/videos-vision/Screen Recording 2020-07-02 at 8.34.21 PM.mov"
+video_path = "/Users/abettati/Desktop/4-alumnos.mov"
 video_capture = cv2.VideoCapture(video_path)
 
-# Load a sample picture and learn how to recognize it.
+# cuanto mas chica es la imagen que se usa para procesar
+scale = 4
 
 participants = []
 with open('./input/alumnos.yaml') as f:
@@ -26,7 +23,7 @@ with open('./input/alumnos.yaml') as f:
 
 def from_file_to_encoding(filename):
   image = face_recognition.load_image_file(filename)
-  face_encoding = face_recognition.face_encodings(image)[0] # ideally only one face is detected
+  face_encoding = face_recognition.face_encodings(image)[0]
   return face_encoding
 
 for person in participants:
@@ -36,26 +33,21 @@ for person in participants:
 
 known_face_encodings = list(map(lambda p: p.encoding, participants))
 
-# Initialize some variables
 face_locations = []
 face_encodings = []
 face_names = []
 process_this_frame = True
 
 while (video_capture.isOpened):
-    # Grab a single frame of video
-    ret, frame = video_capture.read()
+    ret, original_frame = video_capture.read()
 
-    if not frame is None:
+    if not original_frame is None:
 
-        h, w = frame.shape[:2]
-        # Resize frame of video to 1/4 size for faster face recognition processing
-        small_frame = imutils.resize(frame, width=1000)
+        frame = imutils.resize(original_frame, width=1400)
+        small_frame = cv2.resize(frame, (0, 0), fx= 1/scale, fy= 1/scale)
 
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
 
-        # Only process every other frame of video to save time
         if process_this_frame:
             # Find all the faces and face encodings in the current frame of video
             # face_locations = face_recognition.face_locations(rgb_small_frame, number_of_times_to_upsample=0, model="cnn")
@@ -68,16 +60,16 @@ while (video_capture.isOpened):
                 face_location = face_locations[i]
                 name = "Unknown"
                 face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.50)
+                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.52)
 
                 best_match_index = np.argmin(face_distances)
                 if matches[best_match_index]:
                     participant = participants[best_match_index]
                     participant.is_present = True
                     name = participant.name
-                    (top, right, bottom, left) = face_locations[i]
+                    (top, right, bottom, left) = list(map(lambda x: x * scale, face_locations[i]))
                     margin = 35
-                    video_image = small_frame[top -margin: bottom + margin, left - margin:right + margin]
+                    video_image = frame[top -margin: bottom + margin, left - margin:right + margin]
                     if len(participant.video_img) == 0:
                       participant.video_img = video_image.copy()
 
@@ -88,18 +80,24 @@ while (video_capture.isOpened):
 
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
+            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+            top *= scale
+            right *= scale
+            bottom *= scale
+            left *= scale
 
             # Draw a box around the face
             margin = 20
-            cv2.rectangle(small_frame, (left - margin, top - margin), (right + margin, bottom + margin), (0, 0, 255), 2)
+            cv2.rectangle(frame, (left - margin, top - margin), (right + margin, bottom + margin), (0, 0, 255), 2)
 
             # Draw a label with a name below the face
-            cv2.rectangle(small_frame, (left - margin, bottom + margin - 20), (right + margin, bottom + margin), (0, 0, 255), cv2.FILLED)
+            cv2.rectangle(frame, (left - margin, bottom + margin - 20), (right + margin, bottom + margin), (0, 0, 255), cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(small_frame, name, (left - margin + 6, bottom + margin - 6), font, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, name, (left - margin + 6, bottom + margin - 6), font, 0.5, (255, 255, 255), 1)
 
         # Display the resulting image
-        cv2.imshow('Video', small_frame)
+        cv2.imshow('Video', frame)
+        # cv2.imshow('Procesamiento', small_frame)
     else:
       break
     # Hit 'q' on the keyboard to quit!
