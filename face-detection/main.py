@@ -63,7 +63,9 @@ while (video_capture.isOpened):
                 matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.52)
 
                 best_match_index = np.argmin(face_distances)
+
                 if matches[best_match_index]:
+                    # la cara mas cercana y esta dentro de la tolerancia
                     participant = participants[best_match_index]
                     participant.is_present = True
                     name = participant.name
