@@ -7,8 +7,8 @@ import yaml
 from mosaic_view import mosaic_view, concat_face_imgs
 from person import Person
 
-# video_path = "/Users/abettati/Desktop/videos-vision/Screen Recording 2020-07-02 at 8.34.21 PM.mov"
-video_path = "/Users/abettati/Desktop/4-alumnos.mov"
+video_path = "/Users/abettati/Desktop/resultado/4-alumnos.mov"
+
 video_capture = cv2.VideoCapture(video_path)
 
 # cuanto mas chica es la imagen que se usa para procesar
@@ -23,7 +23,8 @@ with open('./input/alumnos.yaml') as f:
 
 def from_file_to_encoding(filename):
   image = face_recognition.load_image_file(filename)
-  face_encoding = face_recognition.face_encodings(image)[0]
+  locations = face_recognition.face_locations(image)
+  face_encoding = face_recognition.face_encodings(image, locations)[0]
   return face_encoding
 
 for person in participants:
